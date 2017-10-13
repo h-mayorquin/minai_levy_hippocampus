@@ -37,7 +37,7 @@ def update_activity(k, z, x_i, c, weight, Is, Ir, s, m):
 
 class MinaNetwork:
 
-    def __init__(self, N_input=200, N_recurrent=200, p=1.0, v=21, b=21, Ki=1.0, Kr=0.5, Ci=1.0, Cr=0.5, theta=0, phi=0,
+    def __init__(self, n_input=200, n_recurrent=200, p=1.0, v=21, b=21, Ki=1.0, Kr=0.5, Ci=1.0, Cr=0.5, theta=0, phi=0,
                  w=None, a=None, uniform_w=True):
         """
 
@@ -54,11 +54,11 @@ class MinaNetwork:
         :param phi: threshold in phi
         :param w: recurrent connectivity in C3
         :param a: connectivity from C3-C1
-        :param uniform_w:  wehther we want w to be uniform or not
+        :param uniform_w:  whether we want w to be uniform or not
         """
 
-        self.N_input = N_input
-        self.N_recurrent = N_recurrent
+        self.N_input = n_input
+        self.N_recurrent = n_recurrent
         self.p = p
         self.v = v
         self.b = b
@@ -69,42 +69,56 @@ class MinaNetwork:
         self.theta = theta
         self.phi = phi
 
+        # Patterns parameters
         self.patterns_dictionary = {}
+        self.sparsity  = None
+        self.number_of_patterns = None
 
-        # Creat the masks
-        self.c1 = bernoulli_mask(size_from=self.N_input, size_to=self.N_recurrent, p=p, binomial=True)
-        self.c2 = bernoulli_mask(size_from=self.N_input, size_to=self.N_recurrent, p=p, binomial=True)
+        # Create the masks
+        self.c1 = bernoulli_mask(size_from=self.N_recurrent, size_to=self.N_recurrent, p=p, binomial=True)
+        self.c2 = bernoulli_mask(size_from=self.N_recurrent, size_to=self.N_input, p=p, binomial=True)
 
         # Initialize the weight matrices
         if w is None:
             if uniform_w:
                 small_value = 0.1
-                self.w = np.ones((N_recurrent, N_recurrent)) * small_value
+                self.w = np.ones((n_recurrent, n_recurrent)) * small_value
             else:
-                self.w = np.random.rand(N_recurrent, N_recurrent)
+                self.w = np.random.rand(n_recurrent, n_recurrent)
         else:
             self.w = w
 
         if a is None:
-            self.a = np.zeros((N_input, N_recurrent))
+            self.a = np.zeros((n_input, n_recurrent))
         else:
             self.a = a
 
     def print_parameters(self):
-        print('')
+        print('Ki', self.Ki)
 
     def build_patterns_dictionary(self, sparsity=10, number_of_patterns=20):
         patterns_dictionary = {}
+        self.sparsity = sparsity
+        self.number_of_patterns = number_of_patterns
+
+        neurons_per_pattern = int(sparsity / 100 * self.N_input)
 
         for pattern_number in range(number_of_patterns):
             # Initialize the pattern with zero
             pattern = np.zeros(self.N_input)
             # Chose some indexes and set them to 1
-            indexes = [pattern_number * sparsity + i for i in range(sparsity)]
+            indexes = [pattern_number * neurons_per_pattern + i for i in range(neurons_per_pattern)]
             pattern[indexes] = 1
             # Create the pattern entry in the dictionary
             patterns_dictionary[pattern_number] = pattern
 
+        # Normalize the inhibition
+        self.Ki /= neurons_per_pattern
+        self.Kr /= neurons_per_pattern
+        self.Ci /= neurons_per_pattern
+        self.Cr /= neurons_per_pattern
+
+        # Store the patterns
         self.patterns_dictionary = patterns_dictionary
 
     def train_network(self, epsilon, training_time, sequence, pre_synaptic_rule=True, save_quantities=False):
@@ -152,14 +166,14 @@ class MinaNetwork:
                 z_r_pre = np.copy(z_r)
                 z_r = (y_r > self.theta).astype('float')
 
+                # Count the neurons that we activated in C3
+                m = np.sum(z_r)
+
                 # Update values for C1
                 aux = update_activity(self.b, z_r_pre, x, self.c2, self.a, self.Ci, self.Cr, s, m)
                 input_excitation_out, recurrent_excitation_out, inhibition_out = aux
                 y_out = input_excitation_out + recurrent_excitation_out - inhibition_out
                 z_out = (y_out > self.phi).astype('float')
-
-                # Update dynamical values
-                m = np.sum(z_r)
 
                 # Update the weights
                 if pre_synaptic_rule:
@@ -194,7 +208,7 @@ class MinaNetwork:
 
         return save_dictionary
 
-    def recall(self, recall_time, cue, verbose = False):
+    def recall(self, recall_time, cue, verbose=False):
 
         x = cue
         recall_history = np.zeros((recall_time, self.N_input))
@@ -221,20 +235,20 @@ class MinaNetwork:
                 print(m)
 
             # Update values for the C3
-            aux = update_activity(self.v, z_r, modified_input, self.cb1, self.w, self.Ki, self.Kr, s, m)
+            aux = update_activity(self.v, z_r, modified_input, self.c1, self.w, self.Ki, self.Kr, s, m)
             input_excitation_r, recurrent_excitation_r, inhibition_r = aux
             y_r = input_excitation_r + recurrent_excitation_r - inhibition_r
             z_r_pre = np.copy(z_r)
             z_r = (y_r > self.theta).astype('float')
+
+            # Count the neurons that we activated in C3
+            m = np.sum(z_r)
 
             # Update values for C1
             aux = update_activity(self.b, z_r_pre, x, self.c2, self.a, self.Ci, self.Cr, s, m)
             input_excitation_out, recurrent_excitation_out, inhibition_out = aux
             y_out = input_excitation_out + recurrent_excitation_out - inhibition_out
             z_out = (y_out > self.phi).astype('float')
-
-            # Update dynamical values
-            m = np.sum(z_r)
 
             # History
             recall_history[_, ...] = z_out
