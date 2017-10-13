@@ -73,6 +73,7 @@ class MinaNetwork:
         self.patterns_dictionary = {}
         self.sparsity  = None
         self.number_of_patterns = None
+        self.neurons_per_pattern = None
 
         # Create the masks
         self.c1 = bernoulli_mask(size_from=self.N_recurrent, size_to=self.N_recurrent, p=p, binomial=True)
@@ -120,13 +121,16 @@ class MinaNetwork:
 
         # Store the patterns
         self.patterns_dictionary = patterns_dictionary
+        self.neurons_per_pattern = neurons_per_pattern
 
-    def train_network(self, epsilon, training_time, sequence, pre_synaptic_rule=True, save_quantities=False):
+    def train_network(self, epsilon, training_time, sequence, verbose=True,
+                      pre_synaptic_rule=True, save_quantities=False):
         """
         Train the network
         :param epsilon: The learning rate
         :param training_time:  How many time steps
         :param sequence:  The sequence in which you want to train
+        :param: verbose: print the evolution for debugging purposes
         :param pre_synaptic_rule: If True use the pre-synaptic rule for w otherwise use the post-synaptic one
         :param save_quantities: Whether to save quantities
         :return:  A dictionary with the quantities saved
@@ -159,6 +163,15 @@ class MinaNetwork:
                 modified_input = np.zeros(self.N_recurrent)
                 modified_input[np.where(x == 1)[0]] = 1.0
 
+                if verbose:
+                    print('sequence', sequence_number)
+                    print('------')
+                    print(_)
+                    print('----')
+                    print('s')
+                    print(s)
+                    print('m')
+                    print(m)
                 # Update values for the C3
                 aux = update_activity(self.v, z_r, modified_input, self.c1, self.w, self.Ki, self.Kr, s, m)
                 input_excitation_r, recurrent_excitation_r, inhibition_r = aux
@@ -170,7 +183,7 @@ class MinaNetwork:
                 m = np.sum(z_r)
 
                 # Update values for C1
-                aux = update_activity(self.b, z_r_pre, x, self.c2, self.a, self.Ci, self.Cr, s, m)
+                aux = update_activity(self.b, z_r, x, self.c2, self.a, self.Ci, self.Cr, s, m)
                 input_excitation_out, recurrent_excitation_out, inhibition_out = aux
                 y_out = input_excitation_out + recurrent_excitation_out - inhibition_out
                 z_out = (y_out > self.phi).astype('float')
@@ -195,10 +208,36 @@ class MinaNetwork:
                     input_r_history.append(input_excitation_r)
                     input_out_history.append(input_excitation_out)
 
+                if verbose:
+                    print('C3 layer')
+                    print('recurrent excitation')
+                    print(recurrent_excitation_r.astype('int'))
+                    print('---- inhibition')
+                    print(inhibition_r)
+                    print('excitation input')
+                    print(input_excitation_r)
+                    print('y_r')
+                    print(y_r)
+                    print('z_r')
+                    print(z_r)
+
+                    print('C1 layer')
+                    print('recurrent excitation_out')
+                    print(recurrent_excitation_out.astype('int'))
+                    print('inhibition_out')
+                    print(inhibition_out)
+                    print('excitation input_out')
+                    print(input_excitation_out)
+                    print('y_out')
+                    print(y_out)
+                    print('z_out')
+                    print(z_out)
+
         # Let's store the saved values and return the weight matrixes
         if save_quantities:
             save_dictionary['m'] = m_history
             save_dictionary['a'] = a_history
+            save_dictionary['w'] = w_history
             save_dictionary['excitation_r'] = excitation_r_history
             save_dictionary['excitation_out'] = excitation_out_history
             save_dictionary['inhibition_r'] = inhibition_r_history
@@ -210,7 +249,7 @@ class MinaNetwork:
 
     def recall(self, recall_time, cue, verbose=False):
 
-        x = cue
+        x = self.patterns_dictionary[cue]
         recall_history = np.zeros((recall_time, self.N_input))
 
         # Initialize the variables
@@ -245,7 +284,7 @@ class MinaNetwork:
             m = np.sum(z_r)
 
             # Update values for C1
-            aux = update_activity(self.b, z_r_pre, x, self.c2, self.a, self.Ci, self.Cr, s, m)
+            aux = update_activity(self.b, z_r, x, self.c2, self.a, self.Ci, self.Cr, s, m)
             input_excitation_out, recurrent_excitation_out, inhibition_out = aux
             y_out = input_excitation_out + recurrent_excitation_out - inhibition_out
             z_out = (y_out > self.phi).astype('float')
