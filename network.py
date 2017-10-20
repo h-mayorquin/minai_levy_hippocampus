@@ -11,13 +11,21 @@ def pre_synaptic_simple(epsilon, w, z_post, z_pre):
 
     return epsilon * increase
 
+def post_synaptic_simple(epsilon, w, z_post, z_pre):
+    increase = np.zeros_like(w)
+
+    n = w.shape[0]
+    for i in range(n):
+        for j in range(n):
+            increase[i, j] = z_post[i] * z_pre[j] - z_post[i] * w[i, j]
+
 
 def pre_synaptic(epsilon, w, z_post, z_pre):
     return epsilon * (np.outer(z_post, z_pre) - w * z_pre)
 
 
 def post_synaptic(epsilon, w, z_post, z_pre):
-    return epsilon * (np.outer(z_pre, z_post) - z_post * w)
+    return epsilon * (np.outer(z_pre, z_post) - z_post * w).T
 
 
 def bernoulli_mask(size_from, size_to, p, binomial=True):
@@ -102,7 +110,7 @@ class MinaNetwork:
         self.sparsity = sparsity
         self.number_of_patterns = number_of_patterns
 
-        neurons_per_pattern = int(sparsity / 100 * self.N_input)
+        neurons_per_pattern = int((sparsity / 100) * self.N_input)
 
         for pattern_number in range(number_of_patterns):
             # Initialize the pattern with zero
@@ -147,6 +155,8 @@ class MinaNetwork:
         inhibition_out_history = []
         input_r_history = []
         input_out_history = []
+        z_r_history = []
+        z_out_history = []
 
         for _ in range(training_time):
             y_r = np.zeros(self.N_recurrent)
@@ -190,11 +200,14 @@ class MinaNetwork:
 
                 # Update the weights
                 if pre_synaptic_rule:
-                    self.w += pre_synaptic(epsilon=epsilon, w=self.w, z_post=z_r, z_pre=z_r_pre)
+                    aux = pre_synaptic(epsilon=epsilon, w=self.w, z_post=z_r, z_pre=z_r_pre)
+                    self.w += aux
                 else:
-                    self.w += post_synaptic(epislon=epsilon, w=self.w, z_post=z_r, z_pre=z_r_pre)
+                    aux = post_synaptic(epsilon=epsilon, w=self.w, z_post=z_r, z_pre=z_r_pre)
+                    self.w += aux
 
-                self.a += pre_synaptic(epsilon=epsilon, w=self.a, z_post=z_out, z_pre=z_r_pre)
+                increment_a = pre_synaptic(epsilon=epsilon, w=self.a, z_post=z_out, z_pre=z_r)
+                self.a += increment_a
 
                 # Save history
                 if save_quantities:
@@ -207,6 +220,8 @@ class MinaNetwork:
                     inhibition_out_history.append(inhibition_out)
                     input_r_history.append(input_excitation_r)
                     input_out_history.append(input_excitation_out)
+                    z_r_history.append(z_r)
+                    z_out_history.append(z_out)
 
                 if verbose:
                     print('C3 layer')
@@ -220,6 +235,8 @@ class MinaNetwork:
                     print(y_r)
                     print('z_r')
                     print(z_r)
+                    print('w increase')
+                    print(aux)
 
                     print('C1 layer')
                     print('recurrent excitation_out')
@@ -232,6 +249,8 @@ class MinaNetwork:
                     print(y_out)
                     print('z_out')
                     print(z_out)
+                    print('a increment')
+                    print(increment_a)
 
         # Let's store the saved values and return the weight matrixes
         if save_quantities:
@@ -244,6 +263,8 @@ class MinaNetwork:
             save_dictionary['inhibition_out'] = inhibition_out_history
             save_dictionary['input_r'] = input_r_history
             save_dictionary['input_out'] = input_out_history
+            save_dictionary['z_r'] = z_r_history
+            save_dictionary['z_out'] = z_out_history
 
         return save_dictionary
 
