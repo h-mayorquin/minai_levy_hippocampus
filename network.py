@@ -11,6 +11,7 @@ def pre_synaptic_simple(epsilon, w, z_post, z_pre):
 
     return epsilon * increase
 
+
 def post_synaptic_simple(epsilon, w, z_post, z_pre):
     increase = np.zeros_like(w)
 
@@ -341,4 +342,36 @@ class MinaNetwork:
                 print(z_out)
 
         return recall_history
+
+    def test_recall_bolean(self, sequence):
+        # Recall
+        cue = sequence[0]
+        recall_time = len(sequence)
+        z_recall = self.recall(recall_time=recall_time, cue=cue, verbose=False)
+
+        # Test equality
+        success = True
+        for sequence_number, z in zip(sequence, z_recall):
+            x = self.patterns_dictionary[sequence_number]
+            if not np.allclose(x, z):
+                success = False
+                break
+
+        return success
+
+    def test_recall(self, sequence):
+        # Recall
+        cue = sequence[0]
+        recall_time = len(sequence)
+        z_recall = self.recall(recall_time=recall_time, cue=cue, verbose=False)
+
+        # Test equality
+        success = 0.0
+        for sequence_number, z in zip(sequence, z_recall):
+            x = self.patterns_dictionary[sequence_number]
+            if np.allclose(x, z):
+                success += 1.0
+
+        success /= recall_time
+        return success * 100.0
 
