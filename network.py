@@ -80,7 +80,7 @@ class MinaNetwork:
 
         # Patterns parameters
         self.patterns_dictionary = {}
-        self.sparsity  = None
+        self.sparsity = None
         self.number_of_patterns = None
         self.neurons_per_pattern = None
 
