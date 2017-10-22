@@ -48,7 +48,7 @@ def update_activity(k, z, x_i, c, weight, Is, Ir, G, s, m):
 class MinaNetwork:
 
     def __init__(self, n_input=200, n_recurrent=200, p=1.0, v=21, b=21, Ki=1.0, Kr=0.5, Ci=1.0, Cr=0.5, theta=0, phi=0,
-                 w=None, a=None, uniform_w=True):
+                 w=None, a=None, uniform_w=True, w0=0.5):
         """
 
         :param N_input: Size of the input and output layer (Ethorinal Cortex, C1)
@@ -92,10 +92,10 @@ class MinaNetwork:
         self.c2 = bernoulli_mask(size_from=self.N_recurrent, size_to=self.N_input, p=p, binomial=True)
 
         # Initialize the weight matrices
+        self.w0 = w0
         if w is None:
             if uniform_w:
-                small_value = 0.1
-                self.w = np.ones((n_recurrent, n_recurrent)) * small_value
+                self.w = np.ones((n_recurrent, n_recurrent)) * self.w0
             else:
                 self.w = np.random.rand(n_recurrent, n_recurrent)
         else:
@@ -137,7 +137,7 @@ class MinaNetwork:
         self.patterns_dictionary = patterns_dictionary
         self.neurons_per_pattern = neurons_per_pattern
 
-    def train_network(self, epsilon, training_time, sequence, verbose=True,
+    def train_network(self, epsilon, training_time, sequence, verbose=False,
                       pre_synaptic_rule=True, save_quantities=False):
         """
         Train the network
@@ -378,7 +378,7 @@ class MinaNetwork:
                 success += 1.0
 
         success /= recall_time
-        return success * 100.0
+        return success * 100.0, z_recall
 
     def plot_weight_matrices(self, switch_grid=True):
 
