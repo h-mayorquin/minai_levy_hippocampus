@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def pre_synaptic_simple(epsilon, w, z_post, z_pre):
@@ -36,9 +37,9 @@ def bernoulli_mask(size_from, size_to, p, binomial=True):
         return np.random.choice(2, size=(size_to, size_from), replace=True, p=[1 - p, p])
 
 
-def update_activity(k, z, x_i, c, weight, Is, Ir, s, m):
+def update_activity(k, z, x_i, c, weight, Is, Ir, G, s, m):
     inhibition = Is * s + Ir * m
-    recurrent_excitation = np.dot(c * weight, z)
+    recurrent_excitation = G * np.dot(c * weight, z)
     input_excitation = k * x_i
 
     return input_excitation, recurrent_excitation, inhibition
@@ -73,8 +74,10 @@ class MinaNetwork:
         self.b = b
         self.Ki = Ki
         self.Kr = Kr
+        self.GC3 = 1.0
         self.Ci = Ci
         self.Cr = Cr
+        self.GC1 = 1.0
         self.theta = theta
         self.phi = phi
 
@@ -122,9 +125,11 @@ class MinaNetwork:
             # Create the pattern entry in the dictionary
             patterns_dictionary[pattern_number] = pattern
 
-        # Normalize the inhibition
-        self.Ki /= neurons_per_pattern
+        # Scale constants
+        self.GC3 /= neurons_per_pattern
+        self.GC1 /= neurons_per_pattern
         self.Kr /= neurons_per_pattern
+        self.Ki /= neurons_per_pattern
         self.Ci /= neurons_per_pattern
         self.Cr /= neurons_per_pattern
 
@@ -162,7 +167,7 @@ class MinaNetwork:
         for _ in range(training_time):
             y_r = np.zeros(self.N_recurrent)
             z_r = np.zeros(self.N_recurrent)
-            m = np.sum(z_r)
+            m = 0.0
 
             y_out = np.zeros(self.N_input)
             z_out = np.zeros(self.N_input)
@@ -184,7 +189,7 @@ class MinaNetwork:
                     print('m')
                     print(m)
                 # Update values for the C3
-                aux = update_activity(self.v, z_r, modified_input, self.c1, self.w, self.Ki, self.Kr, s, m)
+                aux = update_activity(self.v, z_r, modified_input, self.c1, self.w, self.Ki, self.Kr, self.GC3, s, m)
                 input_excitation_r, recurrent_excitation_r, inhibition_r = aux
                 y_r = input_excitation_r + recurrent_excitation_r - inhibition_r
                 z_r_pre = np.copy(z_r)
@@ -194,7 +199,7 @@ class MinaNetwork:
                 m = np.sum(z_r)
 
                 # Update values for C1
-                aux = update_activity(self.b, z_r, x, self.c2, self.a, self.Ci, self.Cr, s, m)
+                aux = update_activity(self.b, z_r, x, self.c2, self.a, self.Ci, self.Cr, self.GC1, s, m)
                 input_excitation_out, recurrent_excitation_out, inhibition_out = aux
                 y_out = input_excitation_out + recurrent_excitation_out - inhibition_out
                 z_out = (y_out > self.phi).astype('float')
@@ -296,7 +301,7 @@ class MinaNetwork:
                 print(m)
 
             # Update values for the C3
-            aux = update_activity(self.v, z_r, modified_input, self.c1, self.w, self.Ki, self.Kr, s, m)
+            aux = update_activity(self.v, z_r, modified_input, self.c1, self.w, self.Ki, self.Kr, self.GC3, s, m)
             input_excitation_r, recurrent_excitation_r, inhibition_r = aux
             y_r = input_excitation_r + recurrent_excitation_r - inhibition_r
             z_r_pre = np.copy(z_r)
@@ -306,7 +311,7 @@ class MinaNetwork:
             m = np.sum(z_r)
 
             # Update values for C1
-            aux = update_activity(self.b, z_r, x, self.c2, self.a, self.Ci, self.Cr, s, m)
+            aux = update_activity(self.b, z_r, x, self.c2, self.a, self.Ci, self.Cr, self.GC1, s, m)
             input_excitation_out, recurrent_excitation_out, inhibition_out = aux
             y_out = input_excitation_out + recurrent_excitation_out - inhibition_out
             z_out = (y_out > self.phi).astype('float')
@@ -375,3 +380,21 @@ class MinaNetwork:
         success /= recall_time
         return success * 100.0
 
+    def plot_weight_matrices(self, switch_grid=True):
+
+        fig = plt.figure(figsize=(16, 12))
+
+        fig.suptitle('Connectivities (w left, a right)')
+
+        ax1 = fig.add_subplot(121)
+        im1 = ax1.imshow(self.w, aspect='auto', vmin=0, vmax=1)
+        if switch_grid:
+            ax1.grid()
+
+        ax2 = fig.add_subplot(122)
+        im2 = ax2.imshow(self.a, aspect='auto', vmin=0, vmax=1)
+        if switch_grid:
+            ax2.grid()
+
+        fig.colorbar(im1, ax=ax1)
+        fig.colorbar(im2, ax=ax2)
