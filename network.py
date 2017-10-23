@@ -47,7 +47,7 @@ def update_activity(k, z, x_i, c, weight, Is, Ir, G, s, m):
 
 class MinaNetwork:
 
-    def __init__(self, n_input=200, n_recurrent=200, p=1.0, v=21, b=21, Ki=1.0, Kr=0.5, Ci=1.0, Cr=0.5, theta=0, phi=0,
+    def __init__(self, n_input=200, n_recurrent=200, p=1.0, p2=1.0, v=21, b=21, Ki=1.0, Kr=0.5, Ci=1.0, Cr=0.5, theta=0, phi=0,
                  w=None, a=None, uniform_w=True, w0=0.5):
         """
 
@@ -70,6 +70,7 @@ class MinaNetwork:
         self.N_input = n_input
         self.N_recurrent = n_recurrent
         self.p = p
+        self.p2 = p2
         self.v = v
         self.b = b
         self.Ki = Ki
@@ -89,7 +90,7 @@ class MinaNetwork:
 
         # Create the masks
         self.c1 = bernoulli_mask(size_from=self.N_recurrent, size_to=self.N_recurrent, p=p, binomial=True)
-        self.c2 = bernoulli_mask(size_from=self.N_recurrent, size_to=self.N_input, p=p, binomial=True)
+        self.c2 = bernoulli_mask(size_from=self.N_recurrent, size_to=self.N_input, p=p2, binomial=True)
 
         # Initialize the weight matrices
         self.w0 = w0
