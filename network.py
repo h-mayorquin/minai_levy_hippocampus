@@ -189,6 +189,7 @@ class MinaNetwork:
                     print(s)
                     print('m')
                     print(m)
+
                 # Update values for the C3
                 aux = update_activity(self.v, z_r, modified_input, self.c1, self.w, self.Ki, self.Kr, self.GC3, s, m)
                 input_excitation_r, recurrent_excitation_r, inhibition_r = aux
@@ -233,7 +234,7 @@ class MinaNetwork:
                 if verbose:
                     print('C3 layer')
                     print('recurrent excitation')
-                    print(recurrent_excitation_r.astype('int'))
+                    print(recurrent_excitation_r)
                     print('---- inhibition')
                     print(inhibition_r)
                     print('excitation input')
@@ -247,7 +248,7 @@ class MinaNetwork:
 
                     print('C1 layer')
                     print('recurrent excitation_out')
-                    print(recurrent_excitation_out.astype('int'))
+                    print(recurrent_excitation_out)
                     print('inhibition_out')
                     print(inhibition_out)
                     print('excitation input_out')
@@ -325,7 +326,7 @@ class MinaNetwork:
             if verbose:
                 print('C3 layer')
                 print('recurrent excitation')
-                print(recurrent_excitation_r.astype('int'))
+                print(recurrent_excitation_r)
                 print('---- inhibition')
                 print(inhibition_r)
                 print('excitation input')
@@ -337,7 +338,7 @@ class MinaNetwork:
 
                 print('C1 layer')
                 print('recurrent excitation_out')
-                print(recurrent_excitation_out.astype('int'))
+                print(recurrent_excitation_out)
                 print('inhibition_out')
                 print(inhibition_out)
                 print('excitation input_out')
