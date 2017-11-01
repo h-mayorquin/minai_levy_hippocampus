@@ -276,10 +276,96 @@ class MinaNetwork:
 
         return save_dictionary
 
+    def train_network_sequences(self, epsilon, training_time, sequences, verbose=False,
+                      pre_synaptic_rule=True, save_quantities=False):
+
+        for _ in range(training_time):
+            for sequence in sequences:
+                y_r = np.zeros(self.N_recurrent)
+                z_r = np.zeros(self.N_recurrent)
+                m = 0.0
+
+                y_out = np.zeros(self.N_input)
+                z_out = np.zeros(self.N_input)
+
+                for sequence_number in sequence:
+                    # Input variables
+                    x = self.patterns_dictionary[sequence_number]
+                    s = np.sum(x)
+                    modified_input = np.zeros(self.N_recurrent)
+                    modified_input[np.where(x == 1)[0]] = 1.0
+
+                    if verbose:
+                        print('sequence', sequence_number)
+                        print('------')
+                        print(_)
+                        print('----')
+                        print('s')
+                        print(s)
+                        print('m')
+                        print(m)
+
+                    # Update values for the C3
+                    aux = update_activity(self.v, z_r, modified_input, self.c1, self.w, self.Ki, self.Kr, self.GC3, s, m)
+                    input_excitation_r, recurrent_excitation_r, inhibition_r = aux
+                    y_r = input_excitation_r + recurrent_excitation_r - inhibition_r
+                    z_r_pre = np.copy(z_r)
+                    z_r = (y_r > self.theta).astype('float')
+
+                    # Count the neurons that we activated in C3
+                    m = np.sum(z_r)
+
+                    # Update values for C1
+                    aux = update_activity(self.b, z_r, x, self.c2, self.a, self.Ci, self.Cr, self.GC1, s, m)
+                    input_excitation_out, recurrent_excitation_out, inhibition_out = aux
+                    y_out = input_excitation_out + recurrent_excitation_out - inhibition_out
+                    z_out = (y_out > self.phi).astype('float')
+
+                    # Update the weights
+                    if pre_synaptic_rule:
+                        aux = pre_synaptic(epsilon=epsilon, w=self.w, z_post=z_r, z_pre=z_r_pre)
+                        self.w += aux
+                    else:
+                        aux = post_synaptic(epsilon=epsilon, w=self.w, z_post=z_r, z_pre=z_r_pre)
+                        self.w += aux
+
+                    increment_a = pre_synaptic(epsilon=epsilon, w=self.a, z_post=z_out, z_pre=z_r)
+                    self.a += increment_a
+
+                    if verbose:
+                        print('C3 layer')
+                        print('recurrent excitation')
+                        print(recurrent_excitation_r)
+                        print('---- inhibition')
+                        print(inhibition_r)
+                        print('excitation input')
+                        print(input_excitation_r)
+                        print('y_r')
+                        print(y_r)
+                        print('z_r')
+                        print(z_r)
+                        print('w increase')
+                        print(aux)
+
+                        print('C1 layer')
+                        print('recurrent excitation_out')
+                        print(recurrent_excitation_out)
+                        print('inhibition_out')
+                        print(inhibition_out)
+                        print('excitation input_out')
+                        print(input_excitation_out)
+                        print('y_out')
+                        print(y_out)
+                        print('z_out')
+                        print(z_out)
+                        print('a increment')
+                        print(increment_a)
+
     def recall(self, recall_time, cue, verbose=False):
 
         x = self.patterns_dictionary[cue]
         recall_history = np.zeros((recall_time, self.N_input))
+        recall_history_c3 = np.zeros((recall_time, self.N_recurrent))
 
         # Initialize the variables
         y_r = np.zeros(self.N_recurrent)
@@ -320,6 +406,7 @@ class MinaNetwork:
 
             # History
             recall_history[_, ...] = z_out
+            recall_history_c3[_, ...] = z_r
             # Eliminate the input
             x = np.zeros(self.N_input)
 
@@ -348,13 +435,13 @@ class MinaNetwork:
                 print('z_out')
                 print(z_out)
 
-        return recall_history
+        return recall_history, recall_history_c3
 
     def test_recall_bolean(self, sequence):
         # Recall
         cue = sequence[0]
         recall_time = len(sequence)
-        z_recall = self.recall(recall_time=recall_time, cue=cue, verbose=False)
+        z_recall, z_recall_c3 = self.recall(recall_time=recall_time, cue=cue, verbose=False)
 
         # Test equality
         success = True
@@ -370,7 +457,7 @@ class MinaNetwork:
         # Recall
         cue = sequence[0]
         recall_time = len(sequence)
-        z_recall = self.recall(recall_time=recall_time, cue=cue, verbose=False)
+        z_recall, z_recall_c3 = self.recall(recall_time=recall_time, cue=cue, verbose=False)
 
         # Test equality
         success = 0.0
@@ -380,7 +467,7 @@ class MinaNetwork:
                 success += 1.0
 
         success /= recall_time
-        return success * 100.0, z_recall
+        return success * 100.0, z_recall, z_recall_c3
 
     def plot_weight_matrices(self, switch_grid=True):
 
@@ -389,12 +476,12 @@ class MinaNetwork:
         fig.suptitle('Connectivities (w left, a right)')
 
         ax1 = fig.add_subplot(121)
-        im1 = ax1.imshow(self.w, aspect='auto', vmin=0, vmax=1)
+        im1 = ax1.imshow(self.c1 * self.w, aspect='auto', vmin=0, vmax=1)
         if switch_grid:
             ax1.grid()
 
         ax2 = fig.add_subplot(122)
-        im2 = ax2.imshow(self.a, aspect='auto', vmin=0, vmax=1)
+        im2 = ax2.imshow(self.c2 * self.a, aspect='auto', vmin=0, vmax=1)
         if switch_grid:
             ax2.grid()
 
